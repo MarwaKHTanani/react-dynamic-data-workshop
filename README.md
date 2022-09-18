@@ -29,19 +29,6 @@ Server running at http://localhost:1234
 ✨  Built in 1.22s.
 ```
 
-If you do not see this message make sure you have a version of node which is above 8 and npm or yarn installed. Make sure you remember to install dependencies.
-
-If you're a Linux user you might get a following error when starting the dev server:
-
-```
-events.js:137
-throw er; // Unhandled 'error' event^
-```
-
-Running this command should fix it:
-
-`echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p`
-
 ### Getting an access token
 
 Next you'll need a GitHub auth token so you won't get rate limited!
@@ -68,7 +55,7 @@ Before you start I'd like you to take a deep breath, you'll get errors through t
 
 Mostly: don't fall into despair, it's just code and you got this!
 
-Let's start by breaking our user card into some top level components. These components will be `Class` components so that we'll have access to state and lifecycle methods. These components will act as "containers" that will do our data fetching and then pass that data down to purely presentational _functional components_.
+Let's start by breaking our user card into some top level components. These components will be `Functional` components so we can use react hooks. These components will act as "containers" that will do our data fetching and then pass that data down to purely presentational _functional components_.
 
 (Your can read more about stateless vs. stateful components [here](https://code.tutsplus.com/tutorials/stateful-vs-stateless-functional-components-in-react--cms-29541))
 
@@ -91,7 +78,7 @@ Now let's fill this component with some real user data! I personally like to sep
 
 ### Get the data
 
-Now we'll need a function that gets your github user data. Create a function that makes a request to `https://api.github.com/users/{{your username}}?access_token={{your access token}}`
+Now we'll need a function that gets your github user data. Create a function that makes a request to `https://api.github.com/users/{{your username}}`
 
 You can use any of your preferred method to create an API request but I'll give an example with the `fetch` API. Don't forget to import the access token you created earlier, it's needed to not get rate limited. Try not to copy paste, you'll learn more if you don't!
 
@@ -107,7 +94,7 @@ const checkResponse = response => {
 };
 
 export const getUserData = username => {
-  return fetch(`https://api.github.com/users/${username}?access_token=${accessToken}`)
+  return fetch(`https://api.github.com/users/${username}`, { headers: { authorization: `token ${accessToken}`}})
     .then(checkResponse)
     .catch(err => {
       throw new Error(`fetch getUserData failed ${err}`);
@@ -119,48 +106,42 @@ export const getUserData = username => {
 
 Now that we have our `getUserData` function, let's import it to our component which will be rendering the data.
 
-### Lifecycle and rendering
+### Effects and rendering
 
-We've heard about React lifecycle methods already, they are a place to run functions related to the components lifecycle. In our case we'll want to run a data fetching function as the component mounts the dom. Sounds familiar? Let's define `componentDidMount()` where we'll call `getUserData`.
+We want to run a data fetching function as the component mounts the dom. Sounds familiar? Let's define `useEffect` where we'll call `getUserData`.
 
 ```javascript=
-componentDidMount() {
-  const username = "sofiapoh";
-  getUserData(username).then(data => console.log(data));
-}
+useEffect(() => {
+    const username = "sofiapoh";
+    getUserData(username)
+        .then(data => console.log(data));
+}, [])
+
 ```
 
-Hopefully you're seeing something in your console by now! That alone is not enough for us to get rendering, we need to set this data in our components `data` state variable we defined earlier in order for us to consume it outside `componentDidMount`.
+Hopefully you're seeing something in your console by now! That alone is not enough for us to get rendering, we need to set this data in our components `data` state variable we defined earlier in order for us to consume it outside `useEffect`.
 
 ```javascript=
-  getUserData(username).then(data => this.setState({userData: data}));
+  getUserData(username)
+      .then(data => setUserData(data));
 ```
 
 Let's take this data and use it to finally render some dynamic content.
 
-In your components `render` method destructure following keys out of `this.state.userData` :
-
 ```javascript
-const {
-  avatar_url,
-  html_url,
-  name,
-  followers,
-  repos_url
-} = this.state.userData;
+const { avatar_url, html_url, name, followers, repos_url } = userData;
 ```
 
 And pass them on your components like so:
 
 ```javascript=
-render () {
   return (
     <div>
       <img src={avatar_url}/>
       {/*More stuff here!*/}
     </div>
   )
-}
+
 ```
 
 Now you _might_ be seeing something! If not, that's fine, you've followed instructions correctly.
@@ -171,10 +152,10 @@ You might be seeing something like this now:
 
 `Uncaught TypeError: Cannot read property 'avatar_url' of null`
 
-Usually data over network gets to us slower than DOM renders content, this is when we need to provide a loading state so we're not trying to render content that is not there yet. In our case we'll just add a small safeguard in the start of the `render` function:
+Usually data over network gets to us slower than DOM renders content, this is when we need to provide a loading state so we're not trying to render content that is not there yet. In our case we'll just add a small safeguard.
 
 ```javascript
-if (!this.state.userData) {
+if (!userData) {
   return <h3>...Loading</h3>;
 }
 ```
@@ -186,8 +167,6 @@ If you feel fairly comfortable continuing ahead I'd like you to take some time t
 ```javascript
 import "./userHeader.css";
 ```
-
-This import is handled by your bundler (Parcel in this case) and doesn't transform CSS into Javascript.
 
 Note: in jsx attributes are camelCase and some are slightly different, for example: `class` => `className`.
 
@@ -204,12 +183,11 @@ Your next steps are:
 1.  Create a new file for your `<RepoList/>` component.
 2.  In the component, add some mock data and import it to the `<UserHeader/>` component.
 3.  Refactor your `getUserData` function to take a url as an argument so you can use it on both of the components.
-4.  Fetch data on the `<RepoList/>` components `componentDidMount` similarily to before.
+4.  Fetch data in `<RepoList/>` components similarily to before.
 
 **There is a small gotcha!** If you try to render `<RepoList/>` before the parent component has `repos_url` you're going to run into errors. One way to handle this is to use a ternary statement to render the component only when the data is fully loaded:
 
 ```javascript=
-render () {
   return (
     <div>
       <img src={avatar_url}/>
@@ -217,7 +195,6 @@ render () {
       {repos_url ? <RepoList url={repos_url} /> : null} // Could render a loading component here instead
     </div>
   )
-}
 ```
 
 When your `<RepoList/>` is rendering correctly we can start to render some real data. You've probably noticed the data we have is an `Array`. A very common pattern is to create a functional component for the data that you want to render and then map over your data dynamically creating a list of the components. That's what we'll do next:
@@ -238,11 +215,9 @@ Don't forget to import your `Repo` component into the `RepoList!`
 
 ```javascript=
 // In RepoList
-render () {
   return (
-   <ul>{this.state.repos.map(repo => <Repo key={repo.id} {...repo} />)}</ul>
+   <ul>{repos.map(repo => <Repo key={repo.id} {...repo} />)}</ul>
   )
-}
 ```
 
 All dynamically rendered components like our `Repo` here need a `key` prop so React can keep track of the correct elements being added/removed from the DOM.
@@ -253,9 +228,9 @@ Great job! :sparkles:
 
 ### Stretch goals
 
-* Refactor the children of both class components into presentational functional components.
-* More CSS
-* Create a form input to dynamically create a Github user card from any username
+- Refactor the children of the components.
+- More CSS
+- Create a form input to dynamically create a Github user card from any username
 
 ### Feedback? Improvements? Clarification?
 
