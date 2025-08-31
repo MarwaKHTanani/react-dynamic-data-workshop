@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import UserHeader from "./UserHeader";
 
 const App = () => {
   const [state, setState] = useState({
@@ -6,7 +7,12 @@ const App = () => {
       "Let's get started! You can delete this state as you won't need it going forward.",
   });
 
-  return <div>{state.hello}</div>;
+  return (
+    <div>
+     <h1>GitHub user card</h1>
+      <UserHeader></UserHeader>
+    </div>
+  );
 };
 
 export default App;
